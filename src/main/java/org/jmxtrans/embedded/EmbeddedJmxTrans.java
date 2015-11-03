@@ -103,28 +103,40 @@ public class EmbeddedJmxTrans implements EmbeddedJmxTransMBean {
 
         private void execute(String invokerName) {
             if (alreadyExecuted.compareAndSet(false, true)) {
+                readWriteLock.writeLock().lock();
                 try {
-                    collectMetrics();
-                    exportCollectedMetrics();
-                    logger.info("{} successfully collected and exported metrics one last time", invokerName);
-                } catch (RuntimeException e) {
-                    logger.warn("{} failed to collect and export metrics one last time", invokerName);
-                }
-
-                try {
-                    for (Query query : queries) {
-                        query.stop();
+                    EmbeddedJmxTrans.State state = EmbeddedJmxTrans.this.state.get();
+                    if (!EmbeddedJmxTrans.State.STARTED.equals(state)) {
+                        logger.debug("Ignore stop() command for " + state + " instance");
+                        return;
                     }
-                } catch (Exception e) {
-                    logger.warn("Failure while stopping queries", e);
-                }
-
-                try {
-                    for (OutputWriter outputWriter : outputWriters) {
-                        outputWriter.stop();
+                    EmbeddedJmxTrans.this.state.set(EmbeddedJmxTrans.State.STOPPING);
+                    try {
+                        collectMetrics();
+                        exportCollectedMetrics();
+                        logger.info("{} successfully collected and exported metrics one last time", invokerName);
+                    } catch (RuntimeException e) {
+                        logger.warn("{} failed to collect and export metrics one last time", invokerName);
                     }
-                } catch (Exception e) {
-                    logger.warn("Failure while stopping outputWriters", e);
+
+                    try {
+                        for (Query query : queries) {
+                            query.stop();
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Failure while stopping queries", e);
+                    }
+
+                    try {
+                        for (OutputWriter outputWriter : outputWriters) {
+                            outputWriter.stop();
+                        }
+                    } catch (Exception e) {
+                        logger.warn("Failure while stopping outputWriters", e);
+                    }
+                    EmbeddedJmxTrans.this.state.set(EmbeddedJmxTrans.State.STOPPED);
+                } finally {
+                    readWriteLock.writeLock().unlock();
                 }
             }
         }
