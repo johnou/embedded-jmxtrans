@@ -132,7 +132,7 @@ public class EmbeddedJmxTrans implements EmbeddedJmxTransMBean {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    enum State {STOPPED, STARTED}
+    enum State {STOPPED, STARTED, ERROR}
 
     private State state = State.STOPPED;
 
@@ -176,7 +176,7 @@ public class EmbeddedJmxTrans implements EmbeddedJmxTransMBean {
                 logger.warn("Ignore start() command for {} instance", state);
                 return;
             }
-            logger.info("Starting EmbeddedJmxTrans...");
+            logger.info("Start...");
 
             for (Query query : queries) {
                 query.start();
@@ -240,6 +240,7 @@ public class EmbeddedJmxTrans implements EmbeddedJmxTransMBean {
             state = State.STARTED;
             logger.info("EmbeddedJmxTrans started");
         } catch (RuntimeException e) {
+            this.state = State.ERROR;
             if (logger.isDebugEnabled()) {
                 // to troubleshoot JMX call errors or equivalent, it may be useful to log and rethrow
                 logger.warn("Exception starting EmbeddedJmxTrans", e);
@@ -302,6 +303,7 @@ public class EmbeddedJmxTrans implements EmbeddedJmxTransMBean {
             state = State.STOPPED;
             logger.info("Set state to {}", state);
         } catch (RuntimeException e) {
+            state = State.ERROR;
             if (logger.isDebugEnabled()) {
                 // to troubleshoot JMX call errors or equivalent, it may be useful to log and rethrow
                 logger.warn("Exception stopping EmbeddedJmxTrans", e);
